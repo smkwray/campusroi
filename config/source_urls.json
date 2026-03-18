@@ -1,0 +1,23 @@
+{
+  "catalog_url": "https://datagov-catalog-dev.app.cloud.gov/dataset/college-scorecard",
+  "landing_page": "https://collegescorecard.ed.gov/data/",
+  "api_base_url": "https://api.data.gov/ed/collegescorecard/v1/schools",
+  "resources": {
+    "most_recent_institution_zip": {
+      "url": "https://ed-public-download.scorecard.network/downloads/Most-Recent-Cohorts-Institution_05192025.zip",
+      "title": "Most Recent Institution Level Data"
+    },
+    "most_recent_field_of_study_zip": {
+      "url": "https://ed-public-download.scorecard.network/downloads/Most-Recent-Cohorts-Field-of-Study_04172025.zip",
+      "title": "Most Recent Data by Field of Study"
+    },
+    "data_dictionary_xlsx": {
+      "url": "https://collegescorecard.ed.gov/assets/CollegeScorecardDataDictionary.xlsx",
+      "title": "College Scorecard Data Dictionary"
+    },
+    "all_raw_data_zip": {
+      "url": "https://ed-public-download.scorecard.network/downloads/College_Scorecard_Raw_Data_05192025.zip",
+      "title": "All College Scorecard Data Files"
+    }
+  }
+}

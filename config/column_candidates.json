@@ -1,0 +1,110 @@
+{
+  "institution": {
+    "institution_id": [
+      "unitid",
+      "id",
+      "opeid"
+    ],
+    "school_name": [
+      "instnm",
+      "school.name",
+      "institution_name"
+    ],
+    "city": [
+      "city",
+      "school.city"
+    ],
+    "state": [
+      "stabbr",
+      "school.state",
+      "state"
+    ],
+    "zip": [
+      "zip",
+      "school.zip"
+    ],
+    "longitude": [
+      "longitude",
+      "location.lon",
+      "lon"
+    ],
+    "latitude": [
+      "latitude",
+      "location.lat",
+      "lat"
+    ],
+    "ownership": [
+      "control",
+      "school.ownership",
+      "ownership"
+    ],
+    "predominant_degree": [
+      "preddeg",
+      "school.degrees_awarded.predominant"
+    ],
+    "student_size": [
+      "ugds",
+      "latest.student.size",
+      "student.size"
+    ],
+    "avg_net_price": [
+      "npt4_pub",
+      "npt4_priv",
+      "latest.cost.avg_net_price",
+      "avg_net_price"
+    ],
+    "completion_rate": [
+      "c150_4",
+      "completion.rate",
+      "latest.completion.rate_suppressed.overall"
+    ],
+    "median_earnings": [
+      "md_earn_wne_p10",
+      "latest.earnings.10_yrs_after_entry.median"
+    ],
+    "median_debt": [
+      "debt_mdn",
+      "latest.aid.median_debt.completers.overall"
+    ]
+  },
+  "field_of_study": {
+    "institution_id": [
+      "unitid",
+      "id"
+    ],
+    "school_name": [
+      "instnm"
+    ],
+    "credential_level": [
+      "credlev",
+      "credential_level"
+    ],
+    "credential_description": [
+      "creddesc"
+    ],
+    "cip_code": [
+      "cipcode",
+      "cip_4_digit",
+      "cipcode4"
+    ],
+    "cip_title": [
+      "cipdesc",
+      "cip_title",
+      "field_of_study"
+    ],
+    "completers": [
+      "ipedscount1",
+      "ipedscount2"
+    ],
+    "median_earnings_1yr": [
+      "earn_mdn_1yr"
+    ],
+    "median_earnings_4yr": [
+      "earn_mdn_4yr"
+    ],
+    "median_debt": [
+      "debt_all_stgp_any_mdn",
+      "debt_all_pp_any_mdn"
+    ]
+  }
+}
