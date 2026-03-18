@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light dark" />
+    <title>College Value Atlas</title>
+    <meta name="description" content="Explore official U.S. college and field-of-study data with a static-first, visualization-rich public product." />
+    <script>
+      // Apply theme before first paint to prevent flash
+      (function() {
+        var t = localStorage.getItem('theme');
+        if (!t) t = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        document.documentElement.setAttribute('data-theme', t);
+        document.querySelector('meta[name="color-scheme"]').content = t;
+      })();
+    </script>
+    <script type="module" crossorigin src="/campusroi/assets/index-DGS_T1W3.js"></script>
+    <link rel="stylesheet" crossorigin href="/campusroi/assets/index-BboI8MP-.css">
+  </head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>
