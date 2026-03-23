@@ -1,13 +1,15 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useMemo } from "react";
 import { useSearchParams, Link } from "react-router-dom";
 import {
   loadInstitutions,
   formatCurrency,
   formatPercent,
   formatNumber,
+  getCompletionRate,
   OWNERSHIP_LABELS,
   DEGREE_LABELS,
 } from "../data";
+import { useAsyncData } from "../useAsyncData";
 import type { Institution } from "../types";
 
 interface MetricRow {
@@ -15,34 +17,31 @@ interface MetricRow {
   format: (v: number | null | undefined) => string;
   key: keyof Institution;
   caveat?: string;
-  /** "higher" = larger is better, "lower" = smaller is better, "none" = no directional highlight */
   direction: "higher" | "lower" | "none";
 }
 
 const METRICS: MetricRow[] = [
   { label: "Undergrad Size", format: formatNumber, key: "student_size", direction: "none" },
   { label: "Avg Net Price", format: formatCurrency, key: "avg_net_price", caveat: "First-time, full-time, federal-aid recipients", direction: "lower" },
-  { label: "Completion Rate", format: formatPercent, key: "completion_rate", caveat: "150%-time for 4-year programs", direction: "higher" },
+  { label: "Completion Rate", format: formatPercent, key: "completion_rate", caveat: "150%-time (4yr or <4yr depending on institution)", direction: "higher" },
   { label: "Median Earnings (10yr)", format: formatCurrency, key: "median_earnings", caveat: "10 years after entry", direction: "higher" },
   { label: "Median Debt", format: formatCurrency, key: "median_debt", direction: "lower" },
 ];
 
 export default function Compare() {
   const [searchParams] = useSearchParams();
-  const [all, setAll] = useState<Institution[]>([]);
-
-  useEffect(() => {
-    loadInstitutions().then(setAll);
-  }, []);
+  const { data: all, loading, error, retry } = useAsyncData(loadInstitutions);
 
   const ids = useMemo(
-    () => (searchParams.get("ids") || "").split(",").map(Number).filter(Boolean),
+    () => [...new Set((searchParams.get("ids") || "").split(",").map(Number).filter(Boolean))],
     [searchParams]
   );
 
+  const institutions = all ?? [];
+
   const selected = useMemo(
-    () => ids.map((id) => all.find((i) => i.institution_id === id)).filter(Boolean) as Institution[],
-    [all, ids]
+    () => ids.map((id) => institutions.find((i) => i.institution_id === id)).filter(Boolean) as Institution[],
+    [institutions, ids]
   );
 
   if (ids.length === 0) {
@@ -57,7 +56,32 @@ export default function Compare() {
     );
   }
 
-  if (all.length === 0) return <div className="loading">Loading...</div>;
+  if (error) {
+    return (
+      <div className="page-detail">
+        <h1>Compare Institutions</h1>
+        <div className="error-state">
+          <p>Failed to load institution data.</p>
+          <button className="button small" onClick={retry}>Retry</button>
+        </div>
+      </div>
+    );
+  }
+
+  if (loading) return <div className="loading">Loading...</div>;
+
+  if (selected.length === 0) {
+    return (
+      <div className="page-detail">
+        <Link to="/institutions" className="back-link">&larr; Back to Institutions</Link>
+        <h1>Compare Institutions</h1>
+        <p className="empty-state">
+          None of the requested institution IDs were found.{" "}
+          <Link to="/institutions">Browse institutions</Link> to select valid ones.
+        </p>
+      </div>
+    );
+  }
 
   return (
     <div className="page-compare">
@@ -96,7 +120,11 @@ export default function Compare() {
 
         {/* Metric rows */}
         {METRICS.map((metric) => {
-          const values = selected.map((inst) => inst[metric.key] as number | null);
+          const getValue = (inst: Institution) =>
+            metric.key === "completion_rate"
+              ? getCompletionRate(inst).value
+              : inst[metric.key] as number | null;
+          const values = selected.map(getValue);
           const validValues = values.filter((v): v is number => v != null);
           const best = validValues.length > 0 && metric.direction !== "none"
             ? (metric.direction === "higher"
@@ -111,7 +139,7 @@ export default function Compare() {
                 {metric.caveat && <span className="cell-caveat">{metric.caveat}</span>}
               </div>
               {selected.map((inst) => {
-                const v = inst[metric.key] as number | null;
+                const v = getValue(inst);
                 const isBest = v != null && v === best && validValues.length > 1;
                 return (
                   <div key={inst.institution_id} className={`compare-cell num ${isBest ? "highlight" : ""}`}>

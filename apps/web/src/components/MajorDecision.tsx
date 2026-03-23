@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   loadInstitutions,
@@ -6,6 +6,7 @@ import {
   loadFieldsByCIP,
   formatCurrency,
 } from "../data";
+import { useAsyncData } from "../useAsyncData";
 import type { CIPAggregate } from "../data";
 import type { Institution, FieldOfStudy } from "../types";
 
@@ -70,8 +71,11 @@ function pickQuip(result: Result): string {
 }
 
 export default function MajorDecision() {
-  const [institutions, setInstitutions] = useState<Institution[]>([]);
-  const [cipAggs, setCipAggs] = useState<CIPAggregate[]>([]);
+  const { data: institutionsData } = useAsyncData(loadInstitutions);
+  const { data: cipAggsData } = useAsyncData(loadCIPAggregates);
+
+  const institutions = institutionsData ?? [];
+  const cipAggs = cipAggsData ?? [];
 
   const [state, setState] = useState("");
   const [city, setCity] = useState("");
@@ -83,11 +87,7 @@ export default function MajorDecision() {
   const [noResult, setNoResult] = useState(false);
   const [loading, setLoading] = useState(false);
   const [revealed, setRevealed] = useState(false);
-
-  useEffect(() => {
-    loadInstitutions().then(setInstitutions);
-    loadCIPAggregates().then(setCipAggs);
-  }, []);
+  const [fetchWarning, setFetchWarning] = useState<string | null>(null);
 
   const states = useMemo(
     () => [...new Set(institutions.map((i) => i.state))].filter(Boolean).sort(),
@@ -124,26 +124,24 @@ export default function MajorDecision() {
     setResult(null);
     setNoResult(false);
     setRevealed(false);
+    setFetchWarning(null);
 
-    // 1. Valid institution IDs for state/city (empty state = all institutions)
     const filtered = state
       ? institutions.filter((i) => i.state === state && (!city || i.city === city))
       : institutions;
     const validIds = new Set(filtered.map((i) => i.institution_id));
 
-    // 2. CIP codes matching interests
     const selectedPrefixes = INTERESTS
       .filter((i) => interests.has(i.id))
       .flatMap((i) => i.prefixes);
 
-    // CIP codes are 4-digit ints (e.g. 5202 = family 52), so extract family as first 2 digits
     const matchingCips = cipAggs.filter((c) => {
       const family = Math.floor(c.cip_code / 100);
       return selectedPrefixes.includes(family);
     });
 
-    // 3. Load programs
     const programs: FieldOfStudy[] = [];
+    let failedCount = 0;
     const batches: Promise<void>[] = [];
     for (const cip of matchingCips) {
       batches.push(
@@ -153,12 +151,17 @@ export default function MajorDecision() {
               if (validIds.has(f.institution_id)) programs.push(f);
             }
           })
-          .catch(() => {})
+          .catch(() => { failedCount++; })
       );
     }
     await Promise.all(batches);
 
-    // 4. Score
+    if (failedCount > 0) {
+      setFetchWarning(
+        `${failedCount} of ${matchingCips.length} program files failed to load. Results may be incomplete.`
+      );
+    }
+
     let best: Result | null = null;
     for (const p of programs) {
       const score = scoreProgram(p, earningsPref, debtPref);
@@ -294,6 +297,10 @@ export default function MajorDecision() {
       >
         {loading ? "Crunching the numbers..." : "Tell Me What To Study"}
       </button>
+
+      {fetchWarning && (
+        <p className="picker-warning">{fetchWarning}</p>
+      )}
 
       {/* Result */}
       {result && (

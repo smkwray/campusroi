@@ -58,6 +58,10 @@
       "completion.rate",
       "latest.completion.rate_suppressed.overall"
     ],
+    "completion_rate_l4": [
+      "c150_l4",
+      "latest.completion.rate_suppressed.lt_four_year_150percent"
+    ],
     "median_earnings": [
       "md_earn_wne_p10",
       "latest.earnings.10_yrs_after_entry.median"

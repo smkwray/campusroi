@@ -11,6 +11,7 @@ export interface Institution {
   student_size: number | null;
   avg_net_price: number | null;
   completion_rate: number | null;
+  completion_rate_l4: number | null;
   median_earnings: number | null;
   median_debt: number | null;
 }

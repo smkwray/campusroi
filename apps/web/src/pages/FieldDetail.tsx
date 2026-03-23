@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState, useCallback } from "react";
 import { useParams, Link } from "react-router-dom";
 import { loadFieldsByCIP, formatCurrency, formatNumber } from "../data";
+import { useAsyncData } from "../useAsyncData";
 import type { FieldOfStudy } from "../types";
 
 const PAGE_SIZE = 50;
@@ -8,23 +9,14 @@ const CRED_ORDER = [1, 2, 3, 5, 6, 4];
 
 export default function FieldDetail() {
   const { code } = useParams<{ code: string }>();
-  const [programs, setPrograms] = useState<FieldOfStudy[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(false);
+  const cipCode = Number(code);
+  const loader = useCallback(() => loadFieldsByCIP(cipCode), [cipCode]);
+  const { data: programs, loading, error, retry } = useAsyncData(loader, [cipCode]);
   const [page, setPage] = useState(0);
-
-  useEffect(() => {
-    setLoading(true);
-    setError(false);
-    loadFieldsByCIP(Number(code))
-      .then(setPrograms)
-      .catch(() => setError(true))
-      .finally(() => setLoading(false));
-  }, [code]);
 
   const sorted = useMemo(
     () =>
-      [...programs].sort((a, b) => {
+      [...(programs ?? [])].sort((a, b) => {
         const ai = CRED_ORDER.indexOf(a.credential_level);
         const bi = CRED_ORDER.indexOf(b.credential_level);
         return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
@@ -36,7 +28,27 @@ export default function FieldDetail() {
   const totalPages = Math.ceil(sorted.length / PAGE_SIZE);
 
   if (loading) return <div className="loading">Loading...</div>;
-  if (error || programs.length === 0) return <div className="empty-state">Field not found.</div>;
+
+  if (error) {
+    return (
+      <div className="page-detail">
+        <Link to="/fields" className="back-link">&larr; All Fields</Link>
+        <div className="error-state">
+          <p>Failed to load field data. The file may not exist for this CIP code.</p>
+          <button className="button small" onClick={retry}>Retry</button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!programs || programs.length === 0) {
+    return (
+      <div className="page-detail">
+        <Link to="/fields" className="back-link">&larr; All Fields</Link>
+        <div className="empty-state">No programs found for this field of study.</div>
+      </div>
+    );
+  }
 
   const title = programs[0].cip_title;
 
@@ -62,8 +74,8 @@ export default function FieldDetail() {
             </tr>
           </thead>
           <tbody>
-            {pageData.map((p, i) => (
-              <tr key={i}>
+            {pageData.map((p) => (
+              <tr key={`${p.institution_id}-${p.cip_code}-${p.credential_level}`}>
                 <td>
                   <Link to={`/institutions/${p.institution_id}`} className="inst-link">
                     {p.school_name}

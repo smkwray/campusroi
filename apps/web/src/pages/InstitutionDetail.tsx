@@ -6,6 +6,7 @@ import {
   formatCurrency,
   formatPercent,
   formatNumber,
+  getCompletionRate,
   OWNERSHIP_LABELS,
   DEGREE_LABELS,
 } from "../data";
@@ -16,9 +17,13 @@ export default function InstitutionDetail() {
   const [inst, setInst] = useState<Institution | null>(null);
   const [programs, setPrograms] = useState<FieldOfStudy[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const numId = Number(id);
+    setLoading(true);
+    setError(null);
+
     const instP = loadInstitutions().then((insts) =>
       setInst(insts.find((i) => i.institution_id === numId) ?? null)
     );
@@ -26,10 +31,24 @@ export default function InstitutionDetail() {
       .then(setPrograms)
       .catch(() => setPrograms([]));
 
-    Promise.all([instP, fieldsP]).finally(() => setLoading(false));
+    Promise.all([instP, fieldsP])
+      .catch(() => setError("Failed to load institution data."))
+      .finally(() => setLoading(false));
   }, [id]);
 
   if (loading) return <div className="loading">Loading...</div>;
+
+  if (error) {
+    return (
+      <div className="page-detail">
+        <div className="error-state">
+          <p>{error}</p>
+          <button className="button small" onClick={() => window.location.reload()}>Retry</button>
+        </div>
+      </div>
+    );
+  }
+
   if (!inst) return <div className="empty-state">Institution not found.</div>;
 
   return (
@@ -55,8 +74,8 @@ export default function InstitutionDetail() {
           <span className="stat-label">Avg Net Price</span>
         </div>
         <div className="stat-card">
-          <span className="stat-value">{formatPercent(inst.completion_rate)}</span>
-          <span className="stat-label">Completion Rate</span>
+          <span className="stat-value">{formatPercent(getCompletionRate(inst).value)}</span>
+          <span className="stat-label">{getCompletionRate(inst).label}</span>
         </div>
         <div className="stat-card">
           <span className="stat-value">{formatCurrency(inst.median_earnings)}</span>
@@ -85,8 +104,8 @@ export default function InstitutionDetail() {
                 </tr>
               </thead>
               <tbody>
-                {programs.map((p, i) => (
-                  <tr key={i}>
+                {programs.map((p) => (
+                  <tr key={`${p.institution_id}-${p.cip_code}-${p.credential_level}`}>
                     <td>
                       <Link to={`/fields/${p.cip_code}`} className="inst-link">{p.cip_title}</Link>
                     </td>

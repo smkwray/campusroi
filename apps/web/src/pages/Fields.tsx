@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { loadCIPAggregates, formatCurrency, formatNumber } from "../data";
+import { useAsyncData } from "../useAsyncData";
 import type { CIPAggregate } from "../data";
 
 const PAGE_SIZE = 50;
@@ -8,19 +9,17 @@ const PAGE_SIZE = 50;
 type SortKey = keyof CIPAggregate;
 
 export default function Fields() {
-  const [all, setAll] = useState<CIPAggregate[]>([]);
+  const { data: all, loading, error, retry } = useAsyncData(loadCIPAggregates);
   const [query, setQuery] = useState("");
   const [sortKey, setSortKey] = useState<SortKey>("total_completers");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
   const [page, setPage] = useState(0);
 
-  useEffect(() => {
-    loadCIPAggregates().then(setAll);
-  }, []);
+  const aggregates = all ?? [];
 
   const filtered = useMemo(() => {
     const q = query.toLowerCase();
-    let result = all;
+    let result = aggregates;
     if (q) result = result.filter((a) => a.cip_title?.toLowerCase().includes(q));
 
     return [...result].sort((a, b) => {
@@ -33,7 +32,7 @@ export default function Fields() {
         return sortDir === "asc" ? av.localeCompare(bv) : bv.localeCompare(av);
       return sortDir === "asc" ? (av as number) - (bv as number) : (bv as number) - (av as number);
     });
-  }, [all, query, sortKey, sortDir]);
+  }, [aggregates, query, sortKey, sortDir]);
 
   const pageData = filtered.slice(page * PAGE_SIZE, (page + 1) * PAGE_SIZE);
   const totalPages = Math.ceil(filtered.length / PAGE_SIZE);
@@ -47,7 +46,21 @@ export default function Fields() {
   const sortIndicator = (key: SortKey) =>
     sortKey === key ? (sortDir === "asc" ? " \u2191" : " \u2193") : "";
 
-  if (all.length === 0) {
+  if (error) {
+    return (
+      <div className="page-fields">
+        <header className="page-header">
+          <h1>Fields of Study</h1>
+        </header>
+        <div className="error-state">
+          <p>Failed to load fields of study data.</p>
+          <button className="button small" onClick={retry}>Retry</button>
+        </div>
+      </div>
+    );
+  }
+
+  if (loading) {
     return (
       <div className="page-fields">
         <header className="page-header">
@@ -66,7 +79,7 @@ export default function Fields() {
         <h1>Fields of Study</h1>
         <p className="subtitle">
           {formatNumber(filtered.length)} fields across{" "}
-          {formatNumber(all.reduce((s, a) => s + a.program_count, 0))} program-level records
+          {formatNumber(aggregates.reduce((s, a) => s + a.program_count, 0))} program-level records
         </p>
       </header>
 
@@ -84,12 +97,24 @@ export default function Fields() {
         <table className="data-table">
           <thead>
             <tr>
-              <th onClick={() => toggleSort("cip_title")} className="sortable">Field{sortIndicator("cip_title")}</th>
-              <th onClick={() => toggleSort("institution_count")} className="sortable num">Schools{sortIndicator("institution_count")}</th>
-              <th onClick={() => toggleSort("total_completers")} className="sortable num">Completers{sortIndicator("total_completers")}</th>
-              <th onClick={() => toggleSort("median_earnings_1yr")} className="sortable num">Earnings (1yr){sortIndicator("median_earnings_1yr")}</th>
-              <th onClick={() => toggleSort("median_earnings_4yr")} className="sortable num">Earnings (4yr){sortIndicator("median_earnings_4yr")}</th>
-              <th onClick={() => toggleSort("median_debt")} className="sortable num">Debt{sortIndicator("median_debt")}</th>
+              <th aria-sort={sortKey === "cip_title" ? sortDir === "asc" ? "ascending" : "descending" : undefined}>
+                <button type="button" className="sort-btn" onClick={() => toggleSort("cip_title")}>Field{sortIndicator("cip_title")}</button>
+              </th>
+              <th className="num" aria-sort={sortKey === "institution_count" ? sortDir === "asc" ? "ascending" : "descending" : undefined}>
+                <button type="button" className="sort-btn" onClick={() => toggleSort("institution_count")}>Schools{sortIndicator("institution_count")}</button>
+              </th>
+              <th className="num" aria-sort={sortKey === "total_completers" ? sortDir === "asc" ? "ascending" : "descending" : undefined}>
+                <button type="button" className="sort-btn" onClick={() => toggleSort("total_completers")}>Completers{sortIndicator("total_completers")}</button>
+              </th>
+              <th className="num" aria-sort={sortKey === "median_earnings_1yr" ? sortDir === "asc" ? "ascending" : "descending" : undefined}>
+                <button type="button" className="sort-btn" onClick={() => toggleSort("median_earnings_1yr")}>Earnings (1yr){sortIndicator("median_earnings_1yr")}</button>
+              </th>
+              <th className="num" aria-sort={sortKey === "median_earnings_4yr" ? sortDir === "asc" ? "ascending" : "descending" : undefined}>
+                <button type="button" className="sort-btn" onClick={() => toggleSort("median_earnings_4yr")}>Earnings (4yr){sortIndicator("median_earnings_4yr")}</button>
+              </th>
+              <th className="num" aria-sort={sortKey === "median_debt" ? sortDir === "asc" ? "ascending" : "descending" : undefined}>
+                <button type="button" className="sort-btn" onClick={() => toggleSort("median_debt")}>Debt{sortIndicator("median_debt")}</button>
+              </th>
             </tr>
           </thead>
           <tbody>

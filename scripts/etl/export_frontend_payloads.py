@@ -4,8 +4,11 @@
 Key design choice: the full fields_of_study dataset (229K+ records, ~70MB JSON)
 is too large to load in a browser in one shot.  Instead we export:
   - cip_aggregates.json  — one row per CIP code with summary stats (~435 entries)
-  - data/fields/<cip_code>.json — per-CIP program lists, loaded on demand
-  - institution_fields/<unitid>.json — per-institution program lists, loaded on demand
+  - fields.jsonl — one line per CIP code, each line is a JSON array of programs
+  - institution_fields.jsonl — one line per institution, each line is a JSON array of programs
+
+JSONL format avoids creating thousands of small files (6,690 previously) which
+cause severe sync degradation on cloud-mounted filesystems (Google Drive, OneDrive).
 """
 from __future__ import annotations
 
@@ -108,6 +111,26 @@ def build_cip_aggregates(fields: pd.DataFrame) -> list[dict]:
     return rows
 
 
+def write_jsonl_grouped(path: Path, df: pd.DataFrame, group_col: str) -> int:
+    """Write a JSONL file where each line is {"key": <group_value>, "records": [...]}.
+
+    Returns the number of groups written.
+    """
+    path.parent.mkdir(parents=True, exist_ok=True)
+    count = 0
+    with open(path, "w", encoding="utf-8") as f:
+        for key, group in df.groupby(group_col):
+            serializable_key = to_serializable(key)
+            line = json.dumps(
+                {"key": serializable_key, "records": safe_records(group)},
+                ensure_ascii=False,
+                allow_nan=False,
+            )
+            f.write(line + "\n")
+            count += 1
+    return count
+
+
 def main() -> None:
     PUBLIC_DATA_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -143,7 +166,7 @@ def main() -> None:
         write_json(PUBLIC_DATA_DIR / "summary.json", summary)
         console.print(f"[green]Exported[/green] summary.json")
 
-    # ── Fields of Study (chunked) ──
+    # ── Fields of Study (JSONL) ──
     if fos_path.exists():
         fields = pd.read_parquet(fos_path)
 
@@ -152,34 +175,31 @@ def main() -> None:
         write_json(PUBLIC_DATA_DIR / "cip_aggregates.json", cip_agg)
         console.print(f"[green]Exported[/green] cip_aggregates.json ({len(cip_agg)} fields)")
 
-        # 2. Per-CIP program files (loaded on demand by FieldDetail)
-        fields_dir = PUBLIC_DATA_DIR / "fields"
-        if fields_dir.exists():
-            shutil.rmtree(fields_dir)
-        fields_dir.mkdir(parents=True)
-        for code, group in fields.groupby("cip_code"):
-            write_json(fields_dir / f"{code}.json", safe_records(group))
-        console.print(f"[green]Exported[/green] fields/ ({len(list(fields_dir.glob('*.json')))} per-CIP files)")
+        # 2. Per-CIP programs as JSONL (one line per CIP code)
+        fields_jsonl = PUBLIC_DATA_DIR / "fields.jsonl"
+        n_cip = write_jsonl_grouped(fields_jsonl, fields, "cip_code")
+        console.print(f"[green]Exported[/green] fields.jsonl ({n_cip} CIP groups, "
+                       f"{fields_jsonl.stat().st_size / 1024:.0f} KB)")
 
-        # 3. Per-institution program files (loaded on demand by InstitutionDetail)
-        inst_fields_dir = PUBLIC_DATA_DIR / "institution_fields"
-        if inst_fields_dir.exists():
-            shutil.rmtree(inst_fields_dir)
-        inst_fields_dir.mkdir(parents=True)
-        for uid, group in fields.groupby("institution_id"):
-            write_json(inst_fields_dir / f"{int(uid)}.json", safe_records(group))
-        console.print(f"[green]Exported[/green] institution_fields/ ({len(list(inst_fields_dir.glob('*.json')))} per-institution files)")
+        # 3. Per-institution programs as JSONL (one line per institution)
+        inst_fields_jsonl = PUBLIC_DATA_DIR / "institution_fields.jsonl"
+        n_inst = write_jsonl_grouped(inst_fields_jsonl, fields, "institution_id")
+        console.print(f"[green]Exported[/green] institution_fields.jsonl ({n_inst} institutions, "
+                       f"{inst_fields_jsonl.stat().st_size / 1024:.0f} KB)")
 
-        # Remove the monolithic file if it exists
-        mono = PUBLIC_DATA_DIR / "fields_of_study.json"
-        if mono.exists():
-            mono.unlink()
-            console.print("[yellow]Removed[/yellow] monolithic fields_of_study.json")
+        # Clean up old per-file directories
+        for old_dir in ("fields", "institution_fields"):
+            old_path = PUBLIC_DATA_DIR / old_dir
+            if old_path.exists() and old_path.is_dir():
+                shutil.rmtree(old_path)
+                console.print(f"[yellow]Removed[/yellow] old {old_dir}/ directory")
 
-        # Remove old cip_index.json (replaced by cip_aggregates.json)
-        old_idx = PUBLIC_DATA_DIR / "cip_index.json"
-        if old_idx.exists():
-            old_idx.unlink()
+        # Remove old monolithic files
+        for old_file in ("fields_of_study.json", "cip_index.json"):
+            old_path = PUBLIC_DATA_DIR / old_file
+            if old_path.exists():
+                old_path.unlink()
+                console.print(f"[yellow]Removed[/yellow] {old_file}")
 
     # ── Referential integrity check ──
     if inst_path.exists() and fos_path.exists():
@@ -193,18 +213,25 @@ def main() -> None:
                 f"Links to these institutions will show 'not found' in the frontend."
             )
 
-    # ── Validate emitted JSON ──
+    # ── Validate emitted files ──
     errors = 0
-    for jf in PUBLIC_DATA_DIR.rglob("*.json"):
+    for jf in PUBLIC_DATA_DIR.glob("*.json"):
         try:
             json.loads(jf.read_text(encoding="utf-8"))
         except (json.JSONDecodeError, ValueError) as exc:
-            console.print(f"[red]Invalid JSON:[/red] {jf.relative_to(PUBLIC_DATA_DIR)} — {exc}")
+            console.print(f"[red]Invalid JSON:[/red] {jf.name} — {exc}")
             errors += 1
+    for jlf in PUBLIC_DATA_DIR.glob("*.jsonl"):
+        for line_num, line in enumerate(jlf.read_text(encoding="utf-8").splitlines(), 1):
+            try:
+                json.loads(line)
+            except (json.JSONDecodeError, ValueError) as exc:
+                console.print(f"[red]Invalid JSONL:[/red] {jlf.name} line {line_num} — {exc}")
+                errors += 1
     if errors:
-        console.print(f"[bold red]{errors} invalid JSON file(s)![/bold red]")
+        console.print(f"[bold red]{errors} invalid file(s)![/bold red]")
         raise SystemExit(1)
-    console.print(f"[green]All emitted JSON files validated.[/green]")
+    console.print(f"[green]All emitted files validated.[/green]")
 
     write_json(
         PUBLIC_DATA_DIR / "manifest.json",
@@ -216,8 +243,8 @@ def main() -> None:
                 "filters.json",
                 "summary.json",
                 "cip_aggregates.json",
-                "fields/<cip_code>.json",
-                "institution_fields/<unitid>.json",
+                "fields.jsonl",
+                "institution_fields.jsonl",
             ],
         },
     )

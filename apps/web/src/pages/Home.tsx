@@ -1,15 +1,12 @@
-import { useEffect, useState } from "react";
+import { lazy, Suspense } from "react";
 import { Link } from "react-router-dom";
 import { loadSummary, formatCurrency, formatNumber } from "../data";
-import type { SummaryStats } from "../types";
-import MajorDecision from "../components/MajorDecision";
+import { useAsyncData } from "../useAsyncData";
+
+const MajorDecision = lazy(() => import("../components/MajorDecision"));
 
 export default function Home() {
-  const [summary, setSummary] = useState<SummaryStats | null>(null);
-
-  useEffect(() => {
-    loadSummary().then(setSummary);
-  }, []);
+  const { data: summary, loading, error, retry } = useAsyncData(loadSummary);
 
   return (
     <div className="page-home">
@@ -27,7 +24,12 @@ export default function Home() {
         </div>
       </section>
 
-      {summary ? (
+      {error ? (
+        <div className="error-state">
+          <p>Failed to load summary data.</p>
+          <button className="button small" onClick={retry}>Retry</button>
+        </div>
+      ) : summary ? (
         <section className="stats-row">
           <div className="stat-card">
             <span className="stat-value">{formatNumber(summary.total_institutions)}</span>
@@ -55,7 +57,9 @@ export default function Home() {
         </div>
       )}
 
-      <MajorDecision />
+      <Suspense fallback={<div className="loading">Loading...</div>}>
+        <MajorDecision />
+      </Suspense>
 
       <section className="info-grid">
         <article className="card">

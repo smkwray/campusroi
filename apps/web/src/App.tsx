@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { HashRouter, Routes, Route } from "react-router-dom";
 import Layout from "./components/Layout";
 import Home from "./pages/Home";
 import Institutions from "./pages/Institutions";
@@ -9,9 +9,19 @@ import Compare from "./pages/Compare";
 import Insights from "./pages/Insights";
 import Methodology from "./pages/Methodology";
 
+function NotFound() {
+  return (
+    <div className="empty-state">
+      <h1>Page not found</h1>
+      <p>The page you're looking for doesn't exist.</p>
+      <a href="#/" className="button">Go Home</a>
+    </div>
+  );
+}
+
 export default function App() {
   return (
-    <BrowserRouter basename={import.meta.env.BASE_URL}>
+    <HashRouter>
       <Routes>
         <Route element={<Layout />}>
           <Route path="/" element={<Home />} />
@@ -22,8 +32,9 @@ export default function App() {
           <Route path="/compare" element={<Compare />} />
           <Route path="/insights" element={<Insights />} />
           <Route path="/methodology" element={<Methodology />} />
+          <Route path="*" element={<NotFound />} />
         </Route>
       </Routes>
-    </BrowserRouter>
+    </HashRouter>
   );
 }

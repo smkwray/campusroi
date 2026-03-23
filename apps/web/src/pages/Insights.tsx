@@ -16,7 +16,10 @@ function toHeatMapData(
   const pts: HeatMapData[] = [];
   for (const inst of institutions) {
     const x = inst[xKey] as number | null;
-    const y = inst[yKey] as number | null;
+    // For completion_rate, coalesce with completion_rate_l4
+    const y = yKey === "completion_rate"
+      ? (inst.completion_rate ?? inst.completion_rate_l4)
+      : inst[yKey] as number | null;
     if (x == null || y == null || !isFinite(x) || !isFinite(y)) continue;
     pts.push({ x, y, ownership: inst.ownership ?? 0, label: inst.school_name, id: inst.institution_id });
   }
@@ -56,14 +59,19 @@ export default function Insights() {
   const [institutions, setInstitutions] = useState<Institution[]>([]);
   const [fields, setFields] = useState<CIPAggregate[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
   const accent = useAccentColors();
 
   useEffect(() => {
+    setLoading(true);
+    setError(null);
     Promise.all([
       loadInstitutions().then(setInstitutions),
       loadCIPAggregates().then(setFields),
-    ]).finally(() => setLoading(false));
+    ])
+      .catch((e) => setError(e?.message || "Failed to load data"))
+      .finally(() => setLoading(false));
   }, []);
 
   const debtVsEarnings = useMemo(() => toHeatMapData(institutions, "median_debt", "median_earnings"), [institutions]);
@@ -73,6 +81,18 @@ export default function Insights() {
   const fieldsEarnings1yrVs4yr = useMemo(() => fieldsToScatter(fields, "median_earnings_1yr", "median_earnings_4yr", accent.secondary), [fields, accent.secondary]);
 
   const goToField = (code: number) => navigate(`/fields/${code}`);
+
+  if (error) {
+    return (
+      <div className="page-insights">
+        <header className="page-header"><h1>Insights</h1></header>
+        <div className="error-state">
+          <p>Failed to load data for insights.</p>
+          <button className="button small" onClick={() => window.location.reload()}>Retry</button>
+        </div>
+      </div>
+    );
+  }
 
   if (loading) {
     return (
