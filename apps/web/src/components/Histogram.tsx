@@ -85,25 +85,24 @@ export default function Histogram({ values, label, format, binCount = 30, color 
     return { bins, maxCount, vMin, vMax };
   }, [sorted, binCount]);
 
-  // KDE curve
+  // KDE curve — scaled to expected counts (density × n × binWidth) so it shares the y-axis with bars
   const densityCurve = useMemo(() => {
-    if (sorted.length < 10 || !stats) return null;
+    if (sorted.length < 10 || !stats || maxCount === 0) return null;
     const iqr = stats.p75 - stats.p25;
     const bw = 0.9 * Math.min(stats.stdDev, iqr / 1.34) * Math.pow(sorted.length, -0.2);
     if (!bw || !isFinite(bw) || bw <= 0) return null;
     const steps = 100;
     const range = vMax - vMin || 1;
+    const binWidth = range / binCount;
     const xs = Array.from({ length: steps }, (_, i) => vMin + (i / (steps - 1)) * range);
-    const ys = kde(sorted, xs, bw);
-    const maxY = Math.max(...ys);
-    if (maxY === 0) return null;
-    // Scale density so peak aligns with ~85% of chart height
-    const scale = (PLOT_H * 0.85) / maxY;
+    const densityVals = kde(sorted, xs, bw);
+    // Convert density to expected count per bin: density × n × binWidth
+    const countVals = densityVals.map((d) => d * sorted.length * binWidth);
     return xs.map((x, i) => ({
       x: PAD.left + ((x - vMin) / range) * PLOT_W,
-      y: PAD.top + PLOT_H - ys[i] * scale,
+      y: PAD.top + PLOT_H - (countVals[i] / maxCount) * PLOT_H,
     }));
-  }, [sorted, stats, vMin, vMax]);
+  }, [sorted, stats, vMin, vMax, maxCount, binCount]);
 
   const densityPath = useMemo(() => {
     if (!densityCurve || densityCurve.length === 0) return "";

@@ -88,19 +88,9 @@ export default function ScatterPlot({ data, xLabel, yLabel, xFormat, yFormat, on
     [data, sx, sy]
   );
 
-  const handlePointKeyDown = useCallback(
-    (e: React.KeyboardEvent, pt: ScatterPoint) => {
-      if ((e.key === "Enter" || e.key === " ") && onClickPoint) {
-        e.preventDefault();
-        onClickPoint(pt.id);
-      }
-    },
-    [onClickPoint],
-  );
-
   const ariaLabel = `Scatter plot: ${xLabel} vs ${yLabel} across ${data.length} data points.${
     reg ? ` R-squared = ${reg.r2.toFixed(3)}.` : ""
-  } ${onClickPoint ? "Click or press Enter on a point to view details." : ""} Use the "View as table" button for an accessible data summary.`;
+  } Use the "View as table" button for an accessible data summary.`;
 
   return (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }} role="figure" aria-label={ariaLabel}>
@@ -188,14 +178,8 @@ export default function ScatterPlot({ data, xLabel, yLabel, xFormat, yFormat, on
             r={hover?.id === pt.id ? 6 : 3.5}
             fill={pt.color}
             opacity={hover ? (hover.id === pt.id ? 1 : 0.2) : "var(--chart-point-dim)"}
-            style={{ cursor: onClickPoint ? "pointer" : undefined, transition: "opacity 0.15s", outline: "none" }}
+            style={{ cursor: onClickPoint ? "pointer" : undefined, transition: "opacity 0.15s" }}
             onClick={onClickPoint ? () => onClickPoint(pt.id) : undefined}
-            onFocus={() => setHover(pt)}
-            onBlur={() => setHover(null)}
-            onKeyDown={(e) => handlePointKeyDown(e, pt)}
-            tabIndex={0}
-            role={onClickPoint ? "button" : "img"}
-            aria-label={`${pt.label}: ${xLabel} ${xFormat(pt.x)}, ${yLabel} ${yFormat(pt.y)}`}
           />
         ))}
 
