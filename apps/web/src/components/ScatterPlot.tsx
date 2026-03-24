@@ -39,6 +39,7 @@ function ticks(min: number, max: number, count: number): number[] {
 
 export default function ScatterPlot({ data, xLabel, yLabel, xFormat, yFormat, onClickPoint, showDiagonal }: Props) {
   const [hover, setHover] = useState<ScatterPoint | null>(null);
+  const [showTable, setShowTable] = useState(false);
   const svgRef = useRef<SVGSVGElement>(null);
 
   const { xMin, xMax, yMin, yMax } = useMemo(() => {
@@ -56,6 +57,11 @@ export default function ScatterPlot({ data, xLabel, yLabel, xFormat, yFormat, on
 
   const xTicks = useMemo(() => ticks(xMin, xMax, TICK_COUNT), [xMin, xMax]);
   const yTicks = useMemo(() => ticks(yMin, yMax, TICK_COUNT), [yMin, yMax]);
+
+  const sortedForTable = useMemo(
+    () => [...data].sort((a, b) => (b.y ?? 0) - (a.y ?? 0)),
+    [data],
+  );
 
   const handleMouseMove = useCallback(
     (e: React.MouseEvent<SVGSVGElement>) => {
@@ -82,14 +88,30 @@ export default function ScatterPlot({ data, xLabel, yLabel, xFormat, yFormat, on
     [data, sx, sy]
   );
 
+  const handlePointKeyDown = useCallback(
+    (e: React.KeyboardEvent, pt: ScatterPoint) => {
+      if ((e.key === "Enter" || e.key === " ") && onClickPoint) {
+        e.preventDefault();
+        onClickPoint(pt.id);
+      }
+    },
+    [onClickPoint],
+  );
+
+  const ariaLabel = `Scatter plot: ${xLabel} vs ${yLabel} across ${data.length} data points.${
+    reg ? ` R-squared = ${reg.r2.toFixed(3)}.` : ""
+  } ${onClickPoint ? "Click or press Enter on a point to view details." : ""} Use the "View as table" button for an accessible data summary.`;
+
   return (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }} role="figure" aria-label={ariaLabel}>
       <svg
         ref={svgRef}
         viewBox={`0 0 ${W} ${H}`}
         className="scatter-svg"
         onMouseMove={handleMouseMove}
         onMouseLeave={() => setHover(null)}
+        role="group"
+        aria-label={`${xLabel} vs ${yLabel} scatter plot`}
       >
         {/* Grid lines */}
         {yTicks.map((t) => (
@@ -166,8 +188,14 @@ export default function ScatterPlot({ data, xLabel, yLabel, xFormat, yFormat, on
             r={hover?.id === pt.id ? 6 : 3.5}
             fill={pt.color}
             opacity={hover ? (hover.id === pt.id ? 1 : 0.2) : "var(--chart-point-dim)"}
-            style={{ cursor: onClickPoint ? "pointer" : undefined, transition: "opacity 0.15s" }}
+            style={{ cursor: onClickPoint ? "pointer" : undefined, transition: "opacity 0.15s", outline: "none" }}
             onClick={onClickPoint ? () => onClickPoint(pt.id) : undefined}
+            onFocus={() => setHover(pt)}
+            onBlur={() => setHover(null)}
+            onKeyDown={(e) => handlePointKeyDown(e, pt)}
+            tabIndex={0}
+            role={onClickPoint ? "button" : "img"}
+            aria-label={`${pt.label}: ${xLabel} ${xFormat(pt.x)}, ${yLabel} ${yFormat(pt.y)}`}
           />
         ))}
 
@@ -180,7 +208,7 @@ export default function ScatterPlot({ data, xLabel, yLabel, xFormat, yFormat, on
           const bx = flipX ? tx - 8 : tx + 8;
           const by = flipY ? ty + 16 : ty - 36;
           return (
-            <g>
+            <g role="status" aria-live="polite">
               <rect
                 x={flipX ? bx - 194 : bx}
                 y={by}
@@ -204,6 +232,44 @@ export default function ScatterPlot({ data, xLabel, yLabel, xFormat, yFormat, on
         <div className="regression-badge">
           <strong>R² = {reg.r2.toFixed(3)}</strong>
           <span>OLS trend across {reg.n} fields</span>
+        </div>
+      )}
+      <button
+        className="button small chart-table-toggle"
+        onClick={() => setShowTable((v) => !v)}
+        aria-expanded={showTable}
+      >
+        {showTable ? "Hide table" : "View as table"}
+      </button>
+      {showTable && (
+        <div className="chart-fallback-table">
+          <table className="data-table">
+            <caption>
+              {xLabel} vs {yLabel} — {data.length} data points, sorted by {yLabel}
+            </caption>
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th className="num">{xLabel}</th>
+                <th className="num">{yLabel}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {sortedForTable.map((pt) => (
+                <tr key={pt.id}>
+                  <td>
+                    {onClickPoint ? (
+                      <button className="link-btn" onClick={() => onClickPoint(pt.id)}>{pt.label}</button>
+                    ) : (
+                      pt.label
+                    )}
+                  </td>
+                  <td className="num">{xFormat(pt.x)}</td>
+                  <td className="num">{yFormat(pt.y)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
     </div>

@@ -11,6 +11,8 @@ import {
   DEGREE_LABELS,
 } from "../data";
 import { useAsyncData } from "../useAsyncData";
+import InfoTip from "../components/InfoTip";
+import { toCSV, downloadCSV } from "../csvExport";
 import type { Institution, FilterMeta } from "../types";
 
 const PAGE_SIZE = 50;
@@ -88,6 +90,24 @@ export default function Institutions() {
 
   const compareList = institutions.filter((i) => compare.has(i.institution_id));
 
+  function exportCSV() {
+    const csv = toCSV(filtered, [
+      { header: "Institution ID", value: (i) => i.institution_id },
+      { header: "Name", value: (i) => i.school_name },
+      { header: "City", value: (i) => i.city },
+      { header: "State", value: (i) => i.state },
+      { header: "ZIP", value: (i) => i.zip },
+      { header: "Ownership", value: (i) => i.ownership != null ? OWNERSHIP_LABELS[i.ownership] ?? "" : "" },
+      { header: "Predominant Degree", value: (i) => i.predominant_degree != null ? DEGREE_LABELS[i.predominant_degree] ?? "" : "" },
+      { header: "Undergrad Enrollment", value: (i) => i.student_size },
+      { header: "Avg Net Price", value: (i) => i.avg_net_price },
+      { header: "Completion Rate", value: (i) => getCompletionRate(i).value },
+      { header: "Median Earnings (10yr)", value: (i) => i.median_earnings },
+      { header: "Median Debt", value: (i) => i.median_debt },
+    ]);
+    downloadCSV(csv, `institutions-${filtered.length}.csv`);
+  }
+
   if (error) {
     return (
       <div className="page-institutions">
@@ -119,7 +139,12 @@ export default function Institutions() {
     <div className="page-institutions">
       <header className="page-header">
         <h1>Institutions</h1>
-        <p className="subtitle">{formatNumber(filtered.length)} of {formatNumber(institutions.length)} institutions</p>
+        <p className="subtitle">
+          {formatNumber(filtered.length)} of {formatNumber(institutions.length)} institutions
+          <button className="button small ghost csv-btn" onClick={exportCSV} title="Download filtered results as CSV">
+            Download CSV
+          </button>
+        </p>
       </header>
 
       <div className="toolbar">
@@ -217,19 +242,19 @@ export default function Institutions() {
                 <button type="button" className="sort-btn" onClick={() => toggleSort("ownership")}>Type{sortIndicator("ownership")}</button>
               </th>
               <th className="num" aria-sort={sortKey === "student_size" ? sortDir === "asc" ? "ascending" : "descending" : undefined}>
-                <button type="button" className="sort-btn" onClick={() => toggleSort("student_size")}>Size{sortIndicator("student_size")}</button>
+                <button type="button" className="sort-btn" onClick={() => toggleSort("student_size")}>Size{sortIndicator("student_size")}</button><InfoTip metric="student_size" />
               </th>
               <th className="num" aria-sort={sortKey === "avg_net_price" ? sortDir === "asc" ? "ascending" : "descending" : undefined}>
-                <button type="button" className="sort-btn" onClick={() => toggleSort("avg_net_price")}>Net Price{sortIndicator("avg_net_price")}</button>
+                <button type="button" className="sort-btn" onClick={() => toggleSort("avg_net_price")}>Net Price{sortIndicator("avg_net_price")}</button><InfoTip metric="avg_net_price" />
               </th>
               <th className="num" aria-sort={sortKey === "completion_rate" ? sortDir === "asc" ? "ascending" : "descending" : undefined}>
-                <button type="button" className="sort-btn" onClick={() => toggleSort("completion_rate")}>Completion{sortIndicator("completion_rate")}</button>
+                <button type="button" className="sort-btn" onClick={() => toggleSort("completion_rate")}>Completion{sortIndicator("completion_rate")}</button><InfoTip metric="completion_rate" />
               </th>
               <th className="num" aria-sort={sortKey === "median_earnings" ? sortDir === "asc" ? "ascending" : "descending" : undefined}>
-                <button type="button" className="sort-btn" onClick={() => toggleSort("median_earnings")}>Earnings (10yr){sortIndicator("median_earnings")}</button>
+                <button type="button" className="sort-btn" onClick={() => toggleSort("median_earnings")}>Earnings (10yr){sortIndicator("median_earnings")}</button><InfoTip metric="median_earnings" />
               </th>
               <th className="num" aria-sort={sortKey === "median_debt" ? sortDir === "asc" ? "ascending" : "descending" : undefined}>
-                <button type="button" className="sort-btn" onClick={() => toggleSort("median_debt")}>Debt{sortIndicator("median_debt")}</button>
+                <button type="button" className="sort-btn" onClick={() => toggleSort("median_debt")}>Debt{sortIndicator("median_debt")}</button><InfoTip metric="median_debt" />
               </th>
             </tr>
           </thead>

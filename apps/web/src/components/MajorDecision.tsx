@@ -71,8 +71,12 @@ function pickQuip(result: Result): string {
 }
 
 export default function MajorDecision() {
-  const { data: institutionsData } = useAsyncData(loadInstitutions);
-  const { data: cipAggsData } = useAsyncData(loadCIPAggregates);
+  const { data: institutionsData, loading: instLoading, error: instError, retry: retryInst } = useAsyncData(loadInstitutions);
+  const { data: cipAggsData, loading: cipLoading, error: cipError, retry: retryCip } = useAsyncData(loadCIPAggregates);
+
+  const dataReady = institutionsData != null && cipAggsData != null;
+  const dataLoading = instLoading || cipLoading;
+  const dataError = instError || cipError;
 
   const institutions = institutionsData ?? [];
   const cipAggs = cipAggsData ?? [];
@@ -107,7 +111,7 @@ export default function MajorDecision() {
       .sort();
   }, [institutions, state]);
 
-  const canSubmit = interests.size > 0;
+  const canSubmit = interests.size > 0 && dataReady;
 
   function toggleInterest(id: string) {
     setInterests((prev) => {
@@ -187,10 +191,19 @@ export default function MajorDecision() {
     <section className="picker-section">
       <div className="picker-header">
         <h2>The Major Decision</h2>
-        <p className="picker-subtitle">
-          Answer a few questions. We'll crunch {institutions.length.toLocaleString()} institutions
-          and tell you exactly what to study and where. One answer. No hedging.
-        </p>
+        {dataError ? (
+          <div className="error-state" style={{ marginTop: "12px" }}>
+            <p>Failed to load program data. The quiz needs institution and field-of-study data to work.</p>
+            <button className="button small" onClick={() => { retryInst(); retryCip(); }}>Retry</button>
+          </div>
+        ) : dataLoading ? (
+          <p className="picker-subtitle">Loading institution and program data…</p>
+        ) : (
+          <p className="picker-subtitle">
+            Answer a few questions. We'll crunch {institutions.length.toLocaleString()} institutions
+            and tell you exactly what to study and where. One answer. No hedging.
+          </p>
+        )}
       </div>
 
       <div className="picker-grid">

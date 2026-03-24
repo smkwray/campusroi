@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useMemo, useCallback } from "react";
 import { useParams, Link } from "react-router-dom";
 import {
   loadInstitutions,
@@ -10,40 +10,33 @@ import {
   OWNERSHIP_LABELS,
   DEGREE_LABELS,
 } from "../data";
+import { useAsyncData } from "../useAsyncData";
+import InfoTip from "../components/InfoTip";
 import type { Institution, FieldOfStudy } from "../types";
 
 export default function InstitutionDetail() {
   const { id } = useParams<{ id: string }>();
-  const [inst, setInst] = useState<Institution | null>(null);
-  const [programs, setPrograms] = useState<FieldOfStudy[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const numId = Number(id);
 
-  useEffect(() => {
-    const numId = Number(id);
-    setLoading(true);
-    setError(null);
+  const { data: institutions, loading: instLoading, error: instError, retry: retryInst } = useAsyncData(loadInstitutions);
+  const loadPrograms = useCallback(() => loadFieldsByInstitution(numId), [numId]);
+  const { data: programs, loading: progLoading, error: progError, retry: retryProg } = useAsyncData(loadPrograms, [numId]);
 
-    const instP = loadInstitutions().then((insts) =>
-      setInst(insts.find((i) => i.institution_id === numId) ?? null)
-    );
-    const fieldsP = loadFieldsByInstitution(numId)
-      .then(setPrograms)
-      .catch(() => setPrograms([]));
+  const inst = useMemo(
+    () => institutions?.find((i) => i.institution_id === numId) ?? null,
+    [institutions, numId],
+  );
 
-    Promise.all([instP, fieldsP])
-      .catch(() => setError("Failed to load institution data."))
-      .finally(() => setLoading(false));
-  }, [id]);
+  const loading = instLoading || progLoading;
 
   if (loading) return <div className="loading">Loading...</div>;
 
-  if (error) {
+  if (instError) {
     return (
       <div className="page-detail">
         <div className="error-state">
-          <p>{error}</p>
-          <button className="button small" onClick={() => window.location.reload()}>Retry</button>
+          <p>Failed to load institution data.</p>
+          <button className="button small" onClick={retryInst}>Retry</button>
         </div>
       </div>
     );
@@ -67,28 +60,33 @@ export default function InstitutionDetail() {
       <section className="stats-row">
         <div className="stat-card">
           <span className="stat-value">{formatNumber(inst.student_size)}</span>
-          <span className="stat-label">Undergrad Size</span>
+          <span className="stat-label">Undergrad Size<InfoTip metric="student_size" /></span>
         </div>
         <div className="stat-card">
           <span className="stat-value">{formatCurrency(inst.avg_net_price)}</span>
-          <span className="stat-label">Avg Net Price</span>
+          <span className="stat-label">Avg Net Price<InfoTip metric="avg_net_price" /></span>
         </div>
         <div className="stat-card">
           <span className="stat-value">{formatPercent(getCompletionRate(inst).value)}</span>
-          <span className="stat-label">{getCompletionRate(inst).label}</span>
+          <span className="stat-label">{getCompletionRate(inst).label}<InfoTip metric="completion_rate" /></span>
         </div>
         <div className="stat-card">
           <span className="stat-value">{formatCurrency(inst.median_earnings)}</span>
-          <span className="stat-label">Median Earnings (10yr)</span>
+          <span className="stat-label">Median Earnings (10yr)<InfoTip metric="median_earnings" /></span>
         </div>
         <div className="stat-card">
           <span className="stat-value">{formatCurrency(inst.median_debt)}</span>
-          <span className="stat-label">Median Debt</span>
+          <span className="stat-label">Median Debt<InfoTip metric="median_debt" /></span>
         </div>
       </section>
 
       <section style={{ marginTop: "32px" }}>
-        {programs.length > 0 ? (
+        {progError ? (
+          <div className="error-state">
+            <p>Failed to load program data for this institution.</p>
+            <button className="button small" onClick={retryProg}>Retry</button>
+          </div>
+        ) : programs && programs.length > 0 ? (
           <>
           <h2>Programs ({programs.length})</h2>
           <div className="table-wrap" style={{ marginTop: "12px" }}>
@@ -97,10 +95,10 @@ export default function InstitutionDetail() {
                 <tr>
                   <th>Field of Study</th>
                   <th>Credential</th>
-                  <th className="num">Completers</th>
-                  <th className="num">Earnings (1yr)</th>
-                  <th className="num">Earnings (4yr)</th>
-                  <th className="num">Debt</th>
+                  <th className="num">Completers<InfoTip metric="completers" /></th>
+                  <th className="num">Earnings (1yr)<InfoTip metric="earnings_1yr" /></th>
+                  <th className="num">Earnings (4yr)<InfoTip metric="earnings_4yr" /></th>
+                  <th className="num">Debt<InfoTip metric="program_debt" /></th>
                 </tr>
               </thead>
               <tbody>

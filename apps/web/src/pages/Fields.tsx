@@ -2,6 +2,8 @@ import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { loadCIPAggregates, formatCurrency, formatNumber } from "../data";
 import { useAsyncData } from "../useAsyncData";
+import InfoTip from "../components/InfoTip";
+import { toCSV, downloadCSV } from "../csvExport";
 import type { CIPAggregate } from "../data";
 
 const PAGE_SIZE = 50;
@@ -46,6 +48,20 @@ export default function Fields() {
   const sortIndicator = (key: SortKey) =>
     sortKey === key ? (sortDir === "asc" ? " \u2191" : " \u2193") : "";
 
+  function exportCSV() {
+    const csv = toCSV(filtered, [
+      { header: "CIP Code", value: (f) => f.cip_code },
+      { header: "Field", value: (f) => f.cip_title },
+      { header: "Institutions", value: (f) => f.institution_count },
+      { header: "Program Count", value: (f) => f.program_count },
+      { header: "Total Completers", value: (f) => f.total_completers },
+      { header: "Median Earnings (1yr)", value: (f) => f.median_earnings_1yr },
+      { header: "Median Earnings (4yr)", value: (f) => f.median_earnings_4yr },
+      { header: "Median Debt", value: (f) => f.median_debt },
+    ]);
+    downloadCSV(csv, `fields-of-study-${filtered.length}.csv`);
+  }
+
   if (error) {
     return (
       <div className="page-fields">
@@ -80,6 +96,9 @@ export default function Fields() {
         <p className="subtitle">
           {formatNumber(filtered.length)} fields across{" "}
           {formatNumber(aggregates.reduce((s, a) => s + a.program_count, 0))} program-level records
+          <button className="button small ghost csv-btn" onClick={exportCSV} title="Download fields as CSV">
+            Download CSV
+          </button>
         </p>
       </header>
 
@@ -104,16 +123,16 @@ export default function Fields() {
                 <button type="button" className="sort-btn" onClick={() => toggleSort("institution_count")}>Schools{sortIndicator("institution_count")}</button>
               </th>
               <th className="num" aria-sort={sortKey === "total_completers" ? sortDir === "asc" ? "ascending" : "descending" : undefined}>
-                <button type="button" className="sort-btn" onClick={() => toggleSort("total_completers")}>Completers{sortIndicator("total_completers")}</button>
+                <button type="button" className="sort-btn" onClick={() => toggleSort("total_completers")}>Completers{sortIndicator("total_completers")}</button><InfoTip metric="completers" />
               </th>
               <th className="num" aria-sort={sortKey === "median_earnings_1yr" ? sortDir === "asc" ? "ascending" : "descending" : undefined}>
-                <button type="button" className="sort-btn" onClick={() => toggleSort("median_earnings_1yr")}>Earnings (1yr){sortIndicator("median_earnings_1yr")}</button>
+                <button type="button" className="sort-btn" onClick={() => toggleSort("median_earnings_1yr")}>Earnings (1yr){sortIndicator("median_earnings_1yr")}</button><InfoTip metric="earnings_1yr" />
               </th>
               <th className="num" aria-sort={sortKey === "median_earnings_4yr" ? sortDir === "asc" ? "ascending" : "descending" : undefined}>
-                <button type="button" className="sort-btn" onClick={() => toggleSort("median_earnings_4yr")}>Earnings (4yr){sortIndicator("median_earnings_4yr")}</button>
+                <button type="button" className="sort-btn" onClick={() => toggleSort("median_earnings_4yr")}>Earnings (4yr){sortIndicator("median_earnings_4yr")}</button><InfoTip metric="earnings_4yr" />
               </th>
               <th className="num" aria-sort={sortKey === "median_debt" ? sortDir === "asc" ? "ascending" : "descending" : undefined}>
-                <button type="button" className="sort-btn" onClick={() => toggleSort("median_debt")}>Debt{sortIndicator("median_debt")}</button>
+                <button type="button" className="sort-btn" onClick={() => toggleSort("median_debt")}>Debt{sortIndicator("median_debt")}</button><InfoTip metric="program_debt" />
               </th>
             </tr>
           </thead>

@@ -26,6 +26,7 @@ const PAD = { top: 16, right: 24, bottom: 52, left: 68 };
 const PLOT_W = W - PAD.left - PAD.right;
 const PLOT_H = H - PAD.top - PAD.bottom;
 const TICK_COUNT = 5;
+const TABLE_ROWS = 20;
 
 function ticks(min: number, max: number, count: number): number[] {
   const step = (max - min) / count;
@@ -56,10 +57,20 @@ function bgToRGB(bg: string): [number, number, number] {
   return [11, 16, 32];
 }
 
+interface BinInfo {
+  count: number;
+  labels: string[];
+  xLow: number;
+  xHigh: number;
+  yLow: number;
+  yHigh: number;
+}
+
 export default function HeatMap({ data, xLabel, yLabel, xFormat, yFormat }: Props) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [tooltip, setTooltip] = useState<{ x: number; y: number; count: number; top: string[] } | null>(null);
   const [themeKey, setThemeKey] = useState(0);
+  const [showTable, setShowTable] = useState(false);
 
   // Watch for theme changes and trigger canvas redraw
   useEffect(() => {
@@ -68,8 +79,8 @@ export default function HeatMap({ data, xLabel, yLabel, xFormat, yFormat }: Prop
     return () => obs.disconnect();
   }, []);
 
-  const { xMin, xMax, yMin, yMax, bins, maxCount } = useMemo(() => {
-    if (data.length === 0) return { xMin: 0, xMax: 1, yMin: 0, yMax: 1, bins: [], maxCount: 0 };
+  const { xMin, xMax, yMin, yMax, bins, maxCount, binW, binH } = useMemo(() => {
+    if (data.length === 0) return { xMin: 0, xMax: 1, yMin: 0, yMax: 1, bins: [] as BinInfo[], maxCount: 0, binW: 1, binH: 1 };
     const xs = data.map((d) => d.x);
     const ys = data.map((d) => d.y);
     const pad = 0.05;
@@ -83,9 +94,20 @@ export default function HeatMap({ data, xLabel, yLabel, xFormat, yFormat }: Prop
     const binW = (xMax - xMin) / BINS_X;
     const binH = (yMax - yMin) / BINS_Y;
 
-    const bins: { count: number; labels: string[] }[] = Array.from(
+    const bins: BinInfo[] = Array.from(
       { length: BINS_X * BINS_Y },
-      () => ({ count: 0, labels: [] })
+      (_, idx) => {
+        const bx = idx % BINS_X;
+        const by = Math.floor(idx / BINS_X);
+        return {
+          count: 0,
+          labels: [],
+          xLow: xMin + bx * binW,
+          xHigh: xMin + (bx + 1) * binW,
+          yLow: yMin + by * binH,
+          yHigh: yMin + (by + 1) * binH,
+        };
+      }
     );
 
     for (const d of data) {
@@ -97,10 +119,16 @@ export default function HeatMap({ data, xLabel, yLabel, xFormat, yFormat }: Prop
     }
 
     const maxCount = Math.max(...bins.map((b) => b.count));
-    return { xMin, xMax, yMin, yMax, bins, maxCount };
+    return { xMin, xMax, yMin, yMax, bins, maxCount, binW, binH };
   }, [data]);
 
   const reg = useMemo(() => ols(data), [data]);
+
+  // Top bins for fallback table
+  const topBins = useMemo(
+    () => [...bins].filter((b) => b.count > 0).sort((a, b) => b.count - a.count).slice(0, TABLE_ROWS),
+    [bins],
+  );
 
   // Draw
   useEffect(() => {
@@ -232,17 +260,25 @@ export default function HeatMap({ data, xLabel, yLabel, xFormat, yFormat }: Prop
     [data, bins]
   );
 
+  const ariaLabel = `Heatmap: ${xLabel} vs ${yLabel} across ${data.length.toLocaleString()} institutions.${
+    reg ? ` R-squared = ${reg.r2.toFixed(3)}.` : ""
+  } Use the "View as table" button for an accessible data summary.`;
+
   return (
-    <div className="heatmap-wrap">
+    <div className="heatmap-wrap" role="figure" aria-label={ariaLabel}>
       <canvas
         ref={canvasRef}
         style={{ width: W, height: H, maxWidth: "100%" }}
         onMouseMove={handleMouseMove}
         onMouseLeave={() => setTooltip(null)}
+        role="img"
+        aria-hidden={showTable}
+        aria-label={`${xLabel} vs ${yLabel} density chart`}
       />
       {tooltip && (
         <div
           className="heatmap-tooltip"
+          role="status"
           style={{
             left: Math.min(tooltip.x + 12, W - 200),
             top: tooltip.y - 10,
@@ -266,6 +302,40 @@ export default function HeatMap({ data, xLabel, yLabel, xFormat, yFormat }: Prop
         <div className="regression-badge">
           <strong>R² = {reg.r2.toFixed(3)}</strong>
           <span>OLS trend across {reg.n.toLocaleString()} institutions</span>
+        </div>
+      )}
+      <button
+        className="button small chart-table-toggle"
+        onClick={() => setShowTable((v) => !v)}
+        aria-expanded={showTable}
+      >
+        {showTable ? "Hide table" : "View as table"}
+      </button>
+      {showTable && (
+        <div className="chart-fallback-table">
+          <table className="data-table">
+            <caption>
+              Top {topBins.length} densest regions — {xLabel} vs {yLabel}
+            </caption>
+            <thead>
+              <tr>
+                <th>{xLabel} range</th>
+                <th>{yLabel} range</th>
+                <th className="num">Count</th>
+                <th>Example institutions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {topBins.map((bin, i) => (
+                <tr key={i}>
+                  <td>{xFormat(bin.xLow)} – {xFormat(bin.xHigh)}</td>
+                  <td>{yFormat(bin.yLow)} – {yFormat(bin.yHigh)}</td>
+                  <td className="num">{bin.count}</td>
+                  <td>{bin.labels.join(", ")}{bin.count > bin.labels.length ? ` +${bin.count - bin.labels.length} more` : ""}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
     </div>

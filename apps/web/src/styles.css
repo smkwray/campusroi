@@ -709,6 +709,174 @@ h1 {
   color: var(--text);
 }
 
+/* ─── CSV Export ─── */
+.csv-btn {
+  margin-left: 12px;
+  vertical-align: middle;
+}
+
+/* ─── InfoTip ─── */
+.infotip-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  vertical-align: middle;
+}
+.infotip-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 14px;
+  height: 14px;
+  margin-left: 4px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 9px;
+  font-style: italic;
+  font-weight: 700;
+  font-family: Georgia, serif;
+  cursor: help;
+  padding: 0;
+  line-height: 1;
+  flex-shrink: 0;
+}
+.infotip-icon:hover,
+.infotip-icon:focus-visible {
+  border-color: var(--accent);
+  color: var(--accent);
+  outline: none;
+}
+.infotip-popup {
+  position: absolute;
+  z-index: 100;
+  top: calc(100% + 6px);
+  left: 0;
+  width: 260px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--surface-solid);
+  border: 1px solid var(--border);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: var(--text-secondary);
+  pointer-events: none;
+}
+.infotip-popup.infotip-flip {
+  left: auto;
+  right: 0;
+}
+.infotip-popup strong {
+  color: var(--text);
+  font-size: 0.82rem;
+}
+.infotip-unit {
+  font-size: 0.72rem;
+  opacity: 0.7;
+}
+.infotip-def {
+  color: var(--text);
+}
+.infotip-cohort {
+  font-size: 0.72rem;
+  opacity: 0.8;
+  border-top: 1px solid var(--border);
+  padding-top: 4px;
+  margin-top: 2px;
+}
+
+/* ─── Institution Map ─── */
+.institution-map {
+  background: var(--surface-solid);
+  border-radius: 12px;
+}
+.map-legend {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 14px;
+  margin-top: 10px;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+.map-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.map-legend-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+.map-legend-count {
+  margin-left: auto;
+  font-size: 0.75rem;
+  opacity: 0.7;
+}
+
+/* ─── Histogram ─── */
+.histogram-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.histogram-header h2 { margin: 0; }
+.metric-select {
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface-solid);
+  color: var(--text);
+  font-size: 0.85rem;
+}
+.histogram-stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 20px;
+  margin-bottom: 12px;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+.histogram-stats strong {
+  color: var(--text);
+}
+
+/* ─── Chart Accessibility ─── */
+.chart-table-toggle {
+  margin-top: 12px;
+  align-self: center;
+}
+.chart-fallback-table {
+  margin-top: 12px;
+  max-height: 400px;
+  overflow-y: auto;
+  width: 100%;
+}
+.chart-fallback-table caption {
+  text-align: left;
+  padding: 8px 0;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+}
+.link-btn {
+  background: none;
+  border: none;
+  color: var(--accent);
+  cursor: pointer;
+  padding: 0;
+  font: inherit;
+  text-decoration: underline;
+}
+.link-btn:hover { opacity: 0.8; }
+
 /* ─── Heatmap ─── */
 .heatmap-wrap {
   position: relative;
@@ -920,6 +1088,17 @@ h1 {
   flex-direction: column;
   gap: 6px;
 }
+
+/* ─── Quiz Gate ─── */
+.quiz-gate {
+  margin-top: 48px;
+  padding: 32px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  text-align: center;
+}
+.quiz-gate h2 { margin-bottom: 8px; }
+.quiz-gate p { color: var(--muted); margin-bottom: 16px; }
 
 /* ─── Major Decision Picker ─── */
 .picker-section {

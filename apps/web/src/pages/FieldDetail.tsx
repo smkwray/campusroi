@@ -2,6 +2,7 @@ import { useMemo, useState, useCallback } from "react";
 import { useParams, Link } from "react-router-dom";
 import { loadFieldsByCIP, formatCurrency, formatNumber } from "../data";
 import { useAsyncData } from "../useAsyncData";
+import InfoTip from "../components/InfoTip";
 import type { FieldOfStudy } from "../types";
 
 const PAGE_SIZE = 50;
@@ -67,10 +68,10 @@ export default function FieldDetail() {
             <tr>
               <th>Institution</th>
               <th>Credential</th>
-              <th className="num">Completers</th>
-              <th className="num">Earnings (1yr)</th>
-              <th className="num">Earnings (4yr)</th>
-              <th className="num">Debt</th>
+              <th className="num">Completers<InfoTip metric="completers" /></th>
+              <th className="num">Earnings (1yr)<InfoTip metric="earnings_1yr" /></th>
+              <th className="num">Earnings (4yr)<InfoTip metric="earnings_4yr" /></th>
+              <th className="num">Debt<InfoTip metric="program_debt" /></th>
             </tr>
           </thead>
           <tbody>

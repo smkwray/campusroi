@@ -10,6 +10,7 @@ import {
   DEGREE_LABELS,
 } from "../data";
 import { useAsyncData } from "../useAsyncData";
+import InfoTip from "../components/InfoTip";
 import type { Institution } from "../types";
 
 interface MetricRow {
@@ -135,7 +136,7 @@ export default function Compare() {
           return (
             <React.Fragment key={metric.key}>
               <div className="compare-cell compare-label">
-                {metric.label}
+                {metric.label}<InfoTip metric={metric.key} />
                 {metric.caveat && <span className="cell-caveat">{metric.caveat}</span>}
               </div>
               {selected.map((inst) => {

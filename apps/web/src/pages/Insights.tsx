@@ -1,12 +1,30 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { loadInstitutions, loadCIPAggregates, formatCurrency } from "../data";
+import { loadInstitutions, loadCIPAggregates, formatCurrency, formatPercent } from "../data";
+import { useAsyncData } from "../useAsyncData";
 import type { Institution } from "../types";
 import type { CIPAggregate } from "../data";
 import HeatMap from "../components/HeatMap";
 import type { HeatMapData } from "../components/HeatMap";
 import ScatterPlot from "../components/ScatterPlot";
 import type { ScatterPoint } from "../components/ScatterPlot";
+import Histogram from "../components/Histogram";
+import InstitutionMap from "../components/InstitutionMap";
+
+interface MetricDef {
+  key: string;
+  label: string;
+  extract: (inst: Institution) => number | null;
+  format: (v: number) => string;
+}
+
+const METRICS: MetricDef[] = [
+  { key: "median_earnings", label: "Median Earnings (10yr)", extract: (i) => i.median_earnings, format: (v) => "$" + Math.round(v).toLocaleString() },
+  { key: "median_debt", label: "Median Debt", extract: (i) => i.median_debt, format: (v) => "$" + Math.round(v).toLocaleString() },
+  { key: "avg_net_price", label: "Average Net Price", extract: (i) => i.avg_net_price, format: (v) => "$" + Math.round(v).toLocaleString() },
+  { key: "completion_rate", label: "Completion Rate", extract: (i) => i.completion_rate ?? i.completion_rate_l4, format: (v) => (v * 100).toFixed(1) + "%" },
+  { key: "student_size", label: "Undergraduate Enrollment", extract: (i) => i.student_size, format: (v) => Math.round(v).toLocaleString() },
+];
 
 function toHeatMapData(
   institutions: Institution[],
@@ -56,29 +74,31 @@ function fieldsToScatter(fields: CIPAggregate[], xKey: keyof CIPAggregate, yKey:
 }
 
 export default function Insights() {
-  const [institutions, setInstitutions] = useState<Institution[]>([]);
-  const [fields, setFields] = useState<CIPAggregate[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { data: institutions, loading: instLoading, error: instError, retry: retryInst } = useAsyncData(loadInstitutions);
+  const { data: fields, loading: fieldsLoading, error: fieldsError, retry: retryFields } = useAsyncData(loadCIPAggregates);
   const navigate = useNavigate();
   const accent = useAccentColors();
+  const [selectedMetric, setSelectedMetric] = useState(METRICS[0].key);
 
-  useEffect(() => {
-    setLoading(true);
-    setError(null);
-    Promise.all([
-      loadInstitutions().then(setInstitutions),
-      loadCIPAggregates().then(setFields),
-    ])
-      .catch((e) => setError(e?.message || "Failed to load data"))
-      .finally(() => setLoading(false));
-  }, []);
+  const loading = instLoading || fieldsLoading;
+  const error = instError || fieldsError;
 
-  const debtVsEarnings = useMemo(() => toHeatMapData(institutions, "median_debt", "median_earnings"), [institutions]);
-  const priceVsCompletion = useMemo(() => toHeatMapData(institutions, "avg_net_price", "completion_rate"), [institutions]);
+  const metric = METRICS.find((m) => m.key === selectedMetric) ?? METRICS[0];
+  const histogramValues = useMemo(() => {
+    if (!institutions) return [];
+    const vals: number[] = [];
+    for (const inst of institutions) {
+      const v = metric.extract(inst);
+      if (v != null && isFinite(v)) vals.push(v);
+    }
+    return vals;
+  }, [institutions, metric]);
 
-  const fieldsDebtVsEarnings4yr = useMemo(() => fieldsToScatter(fields, "median_debt", "median_earnings_4yr", accent.primary), [fields, accent.primary]);
-  const fieldsEarnings1yrVs4yr = useMemo(() => fieldsToScatter(fields, "median_earnings_1yr", "median_earnings_4yr", accent.secondary), [fields, accent.secondary]);
+  const debtVsEarnings = useMemo(() => toHeatMapData(institutions ?? [], "median_debt", "median_earnings"), [institutions]);
+  const priceVsCompletion = useMemo(() => toHeatMapData(institutions ?? [], "avg_net_price", "completion_rate"), [institutions]);
+
+  const fieldsDebtVsEarnings4yr = useMemo(() => fieldsToScatter(fields ?? [], "median_debt", "median_earnings_4yr", accent.primary), [fields, accent.primary]);
+  const fieldsEarnings1yrVs4yr = useMemo(() => fieldsToScatter(fields ?? [], "median_earnings_1yr", "median_earnings_4yr", accent.secondary), [fields, accent.secondary]);
 
   const goToField = (code: number) => navigate(`/fields/${code}`);
 
@@ -88,7 +108,7 @@ export default function Insights() {
         <header className="page-header"><h1>Insights</h1></header>
         <div className="error-state">
           <p>Failed to load data for insights.</p>
-          <button className="button small" onClick={() => window.location.reload()}>Retry</button>
+          <button className="button small" onClick={() => { retryInst(); retryFields(); }}>Retry</button>
         </div>
       </div>
     );
@@ -109,9 +129,53 @@ export default function Insights() {
       <header className="page-header">
         <h1>Insights</h1>
         <p className="subtitle">
-          Visual patterns across {institutions.length.toLocaleString()} institutions and {fields.length} fields of study
+          Visual patterns across {(institutions ?? []).length.toLocaleString()} institutions and {(fields ?? []).length} fields of study
         </p>
       </header>
+
+      {/* ── Distribution Histogram ── */}
+      <section className="chart-section">
+        <div className="histogram-header">
+          <h2>Distribution</h2>
+          <select
+            value={selectedMetric}
+            onChange={(e) => setSelectedMetric(e.target.value)}
+            className="metric-select"
+            aria-label="Select metric to display"
+          >
+            {METRICS.map((m) => (
+              <option key={m.key} value={m.key}>{m.label}</option>
+            ))}
+          </select>
+        </div>
+        <p className="chart-desc">
+          How institutions are spread across {metric.label.toLowerCase()}.
+          The dashed line marks the median. The curve shows the estimated density.
+        </p>
+        <Histogram
+          values={histogramValues}
+          label={metric.label}
+          format={metric.format}
+          color={accent.secondary}
+        />
+      </section>
+
+      {/* ── Institution Map ── */}
+      <section className="chart-section">
+        <h2>Geographic Distribution</h2>
+        <p className="chart-desc">
+          Every institution plotted by location, colored by ownership type.
+          Hover for details, click to explore.
+        </p>
+        {(institutions ?? []).length > 0 ? (
+          <InstitutionMap
+            institutions={institutions ?? []}
+            onClickInstitution={(id) => navigate(`/institutions/${id}`)}
+          />
+        ) : (
+          <p className="empty-state">No institution data available.</p>
+        )}
+      </section>
 
       {/* ── Institution Heatmaps ── */}
       <section className="chart-section">
