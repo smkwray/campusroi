@@ -59,4 +59,4 @@ All data come from the [U.S. Department of Education College Scorecard](https://
 
 ## License
 
-This repository does not include a license yet.
+MIT. See [LICENSE](LICENSE).
