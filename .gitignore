@@ -17,3 +17,5 @@ data/processed/*
 !data/processed/.gitkeep
 apps/web/dist/
 apps/web/public/data/
+
+.private-denylist
